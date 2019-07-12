@@ -3,6 +3,7 @@
  
  此项目中将netcore SignalR做成了一个控制台应用程序，这样可以做成一个windows服务（控制定时重启，控制占用内存）
 
+ <a href="https://www.cnblogs.com/wangpengzong/p/11175665.html" targht="_blank">查看演示</a>
 
  <h1>SignalR.Server：控制台应用程序SignalR服务 </h1>
  
