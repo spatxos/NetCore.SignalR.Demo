@@ -57,13 +57,16 @@ namespace SignalR.Server
                 }
                 Console.WriteLine($"OnConnectedAsync:NickName:{client.NickName},Avatar:{client.Avatar},ConnectionId:{Context.ConnectionId},Identifier:{client.Identifier},GroupId:{client.GroupId},当前链接人数{OnlineClients.Count}");
                 await base.OnConnectedAsync();
-                await Groups.AddToGroupAsync(Context.ConnectionId, client.GroupId);
+                if (!string.IsNullOrWhiteSpace(client.GroupId))
+                {
+                    await Groups.AddToGroupAsync(Context.ConnectionId, client.GroupId);
+                }
                 //await Clients.GroupExcept(client.GroupId, new[] { client.Identifier }).SendAsync("system", $"用户{client.NickName}加入了群聊");
                 //await Clients.Client(client.Identifier).SendAsync("system", $"成功加入{client.GroupId}");
             }
-            catch
+            catch(Exception e)
             {
-
+                Console.WriteLine(e.Message);
             }
         }
         public override async Task OnDisconnectedAsync(Exception exception)
@@ -81,14 +84,14 @@ namespace SignalR.Server
                 }
 
                 Console.WriteLine($"OnDisconnectedAsync:NickName:{client.NickName},Avatar:{client.Avatar},ConnectionId:{Context.ConnectionId},Identifier:{client.Identifier},GroupId:{client.GroupId},当前ConnectionId条数:{client.ConnectionIds.Count},当前链接人数{OnlineClients.Count}");
-                foreach (var cid in client.ConnectionIds)
+                if (!string.IsNullOrWhiteSpace(client.GroupId))
                 {
-                    await Groups.RemoveFromGroupAsync(cid, client.GroupId);
+                    await Groups.RemoveFromGroupAsync(Context.ConnectionId, client.GroupId);
                 }
-                if (isRemoved)
-                {
-                    await Clients.GroupExcept(client.GroupId, client.ConnectionIds).SendAsync("system", $"用户{client.NickName}加入了群聊");
-                }
+                //if (isRemoved)
+                //{
+                //    await Clients.GroupExcept(client.GroupId, client.ConnectionIds).SendAsync("system", $"用户{client.NickName}加入了群聊");
+                //}
 
             }
             catch (Exception e)
@@ -111,14 +114,6 @@ namespace SignalR.Server
                 OnlineClients.TryGetValue(msg.From, out client);
             }
             Console.WriteLine($"SendMessage:user{msg.From},message{msg.Content}");
-            //await Clients.Group(client.GroupId).SendAsync("ReceiveMessage", msg);//发给本组
-            //await Clients.GroupExcept(client.GroupId, new[] { client.ConnectionId }).SendAsync("ReceiveMessage", msg);//发给本组自己，如果知道对方ConnectionId可以指定
-            //await Clients.Groups(new[] { client.GroupId }).SendAsync("ReceiveMessage", msg);//发给哪些组
-
-            //await Clients.User(client.ConnectionId).SendAsync("ReceiveMessage", msg);//发给哪个人
-            //await Clients.Users(new[] { msg.From }).SendAsync("ReceiveMessage", msg);//发给哪些人
-
-            //await Clients.AllExcept(new[] { msg.From }).SendAsync("ReceiveMessage", msg);//发给哪些人，需指定ConnectionId
             await Clients.All.SendAsync("SendMessage", msg);//发给全部
         }
 
@@ -135,15 +130,8 @@ namespace SignalR.Server
                 OnlineClients.TryGetValue(msg.From, out client);
             }
             Console.WriteLine($"SendMessage:From:{msg.From},To:{msg.To},message{msg.Content}");
-            //await Clients.Group(client.GroupId).SendAsync("ReceiveMessage", msg);//发给本组
-            //await Clients.GroupExcept(client.GroupId, new[] { client.ConnectionId }).SendAsync("ReceiveMessage", msg);//发给本组自己，如果知道对方ConnectionId可以指定
-            //await Clients.Groups(new[] { client.GroupId }).SendAsync("ReceiveMessage", msg);//发给哪些组
 
             await Clients.User(msg.To).SendAsync("SendMessage", msg);//发给哪个人
-            //await Clients.Users(new[] { msg.From }).SendAsync("ReceiveMessage", msg);//发给哪些人
-
-            //await Clients.AllExcept(new[] { msg.From }).SendAsync("ReceiveMessage", msg);//发给哪些人，需指定ConnectionId
-            //await Clients.All.SendAsync("ReceiveMessage", msg);//发给全部
         }
 
         /// <summary>
@@ -160,14 +148,6 @@ namespace SignalR.Server
             }
             Console.WriteLine($"SendMessage:user{msg.From},togroup:{msg.GroupId},message{msg.Content}");
             await Clients.Group(msg.GroupId).SendAsync("SendMessage", msg);//发给本组
-            //await Clients.GroupExcept(client.GroupId, new[] { client.ConnectionId }).SendAsync("ReceiveMessage", msg);//发给本组自己，如果知道对方ConnectionId可以指定
-            //await Clients.Groups(new[] { client.GroupId }).SendAsync("ReceiveMessage", msg);//发给哪些组
-
-            //await Clients.User(client.ConnectionId).SendAsync("ReceiveMessage", msg);//发给哪个人
-            //await Clients.Users(new[] { msg.From }).SendAsync("ReceiveMessage", msg);//发给哪些人
-
-            //await Clients.AllExcept(new[] { msg.From }).SendAsync("ReceiveMessage", msg);//发给哪些人，需指定ConnectionId
-            //await Clients.All.SendAsync("ReceiveMessage", msg);//发给全部
         }
 
 
@@ -184,39 +164,15 @@ namespace SignalR.Server
                 OnlineClients.TryGetValue(msg.From, out client);
             }
             Console.WriteLine($"SendMessage:user{msg.From},togroups:{JsonConvert.SerializeObject(msg.ToGroupIds)},message{msg.Content}");
-            await Clients.Groups(msg.ToGroupIds as IReadOnlyList<string>).SendAsync("SendMessage", msg);//发给本组
-            //await Clients.GroupExcept(client.GroupId, new[] { client.ConnectionId }).SendAsync("ReceiveMessage", msg);//发给本组自己，如果知道对方ConnectionId可以指定
-            //await Clients.Groups(new[] { client.GroupId }).SendAsync("ReceiveMessage", msg);//发给哪些组
-
-            //await Clients.User(client.ConnectionId).SendAsync("ReceiveMessage", msg);//发给哪个人
-            //await Clients.Users(new[] { msg.From }).SendAsync("ReceiveMessage", msg);//发给哪些人
-
-            //await Clients.AllExcept(new[] { msg.From }).SendAsync("ReceiveMessage", msg);//发给哪些人，需指定ConnectionId
-            //await Clients.All.SendAsync("ReceiveMessage", msg);//发给全部
+            foreach (var group in msg.ToGroupIds)
+            {
+                await Clients.Group(group).SendAsync("SendMessage", msg);//发给本组
+            }
         }
     }
 
     public class CustomUserIdProvider : IUserIdProvider
     {
-        //public string GetUserId(IRequest request)
-        //{
-        //    var userguid = request.QueryString["userguid"];
-        //    if (string.IsNullOrWhiteSpace(userguid))
-        //    {
-        //        var userIdentity = request.User.Identity;
-        //        if (userIdentity != null)
-        //        {
-        //            Console.WriteLine(userIdentity.Name);
-        //        }
-        //    }
-        //    else
-        //    {
-        //        return userguid;
-        //    }
-
-        //    return "";
-        //}
-
         public string GetUserId(HubConnectionContext connection)
         {
             var identifier = HttpContext.Current.Request.Query["identifier"];
